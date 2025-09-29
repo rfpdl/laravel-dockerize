@@ -1,0 +1,43 @@
+name: E2E Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [pgsql, mysql, mariadb]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+
+      - name: Install Composer
+        run: |
+          php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
+          php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+          php -r "unlink('composer-setup.php');"
+
+      - name: Ensure Docker Compose v2
+        run: docker compose version
+
+      - name: Make script executable
+        run: chmod +x tests/run-e2e.sh
+
+      - name: Run E2E test
+        run: tests/run-e2e.sh
+        env:
+          DB: ${{ matrix.db }}
+          PRESET: local

@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/common/php-fpm/Dockerfile
+      target: development
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+        - XDEBUG_ENABLED=${XDEBUG_ENABLED:-false}
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+    environment:
+      - APP_ENV=development
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "php-fpm-healthcheck || exit 1"]
+      interval: 10s
+    depends_on:
+      maindb:
+        condition: service_healthy
+      logdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+      - ./docker/development/nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - app-network
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    depends_on:
+      app:
+        condition: service_healthy
+
+  maindb:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${DB_DATABASE:-app_dev}
+      - POSTGRES_USER=${DB_USERNAME:-app}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-secret}
+    volumes:
+      - maindb-dev-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    ports:
+      - "${POSTGRES_MAIN_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-app}"]
+      interval: 10s
+
+  logdb:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${LOG_DB_DATABASE:-app_logs_dev}
+      - POSTGRES_USER=${LOG_DB_USERNAME:-app}
+      - POSTGRES_PASSWORD=${LOG_DB_PASSWORD:-secret}
+    volumes:
+      - logdb-dev-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    ports:
+      - "${POSTGRES_LOG_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${LOG_DB_USERNAME:-app}"]
+      interval: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - app-network
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+
+  horizon:
+    build:
+      context: .
+      dockerfile: ./docker/common/php-fpm/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+    environment:
+      - APP_ENV=development
+    command: ["watch-horizon.sh"]
+    networks:
+      - app-network
+    depends_on:
+      maindb:
+        condition: service_healthy
+      logdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  maindb-dev-data:
+  logdb-dev-data:
+  redis-dev-data:

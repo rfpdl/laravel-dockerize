@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/common/php-fpm/Dockerfile
+      target: development
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+        - XDEBUG_ENABLED=${XDEBUG_ENABLED:-true}
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+      - ./storage:/var/www/storage
+      - vendor:/var/www/vendor
+      - node_modules:/var/www/node_modules
+    env_file:
+      - .env.local
+    environment:
+      - LOG_DB_CONNECTION=mysql
+      - LOG_DB_HOST=logdb
+      - LOG_DB_PORT=3306
+      - LOG_DB_DATABASE=${LOG_DB_DATABASE:-app_logs_local}
+      - LOG_DB_USERNAME=${LOG_DB_USERNAME:-app}
+      - LOG_DB_PASSWORD=${LOG_DB_PASSWORD:-secret}
+    networks:
+      - app-network
+    ports:
+      - "9000:9000"
+    depends_on:
+      maindb:
+        condition: service_healthy
+      logdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+      - ./docker/development/nginx/nginx.conf:/etc/nginx/nginx.conf
+    networks:
+      - app-network
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+
+  vite:
+    build:
+      context: .
+      dockerfile: ./docker/development/vite/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+      - node_modules:/var/www/node_modules
+    networks:
+      - app-network
+    ports:
+      - "5173:5173"
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+
+  maindb:
+    image: mysql:8
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE:-app_local}
+      - MYSQL_USER=${DB_USERNAME:-app}
+      - MYSQL_PASSWORD=${DB_PASSWORD:-secret}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootsecret}
+    volumes:
+      - maindb-local-data:/var/lib/mysql
+    networks:
+      - app-network
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  logdb:
+    image: mysql:8
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      - MYSQL_DATABASE=${LOG_DB_DATABASE:-app_logs_local}
+      - MYSQL_USER=${LOG_DB_USERNAME:-app}
+      - MYSQL_PASSWORD=${LOG_DB_PASSWORD:-secret}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootsecret}
+    volumes:
+      - logdb-local-data:/var/lib/mysql
+    networks:
+      - app-network
+    ports:
+      - "${MYSQL_LOG_PORT:-3307}:3306"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$${MYSQL_ROOT_PASSWORD} || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-local-data:/data
+    networks:
+      - app-network
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+
+  horizon:
+    build:
+      context: .
+      dockerfile: ./docker/common/php-fpm/Dockerfile
+      target: development
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+    restart: unless-stopped
+    volumes:
+      - .:/var/www
+      - vendor:/var/www/vendor
+    env_file:
+      - .env.local
+    environment:
+      - DB_CONNECTION=mysql
+      - DB_HOST=maindb
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-app_local}
+      - DB_USERNAME=${DB_USERNAME:-app}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+      - LOG_DB_CONNECTION=mysql
+      - LOG_DB_HOST=logdb
+      - LOG_DB_PORT=3306
+      - LOG_DB_DATABASE=${LOG_DB_DATABASE:-app_logs_local}
+      - LOG_DB_USERNAME=${LOG_DB_USERNAME:-app}
+      - LOG_DB_PASSWORD=${LOG_DB_PASSWORD:-secret}
+    command: ["watch-horizon.sh"]
+    networks:
+      - app-network
+    depends_on:
+      maindb:
+        condition: service_healthy
+      logdb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  maindb-local-data:
+  logdb-local-data:
+  redis-local-data:
+  vendor:
+  node_modules:

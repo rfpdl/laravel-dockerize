@@ -1,0 +1,45 @@
+# Ignore VCS
+.git
+.gitignore
+
+# Node artifacts
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Composer artifacts
+vendor
+composer.lock
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# IDE/editor
+.idea
+.vscode
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+/public/build
+/storage
+/bootstrap/cache
+
+# Docker compose files (not needed inside build context)
+/docker-compose.yml
+/docker-compose.*.yml
+
+# Tests and local scripts (not required in image)
+/tests
+/scripts
+
+# Misc
+*.log
