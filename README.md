@@ -24,7 +24,7 @@ A Laravel-specific Docker scaffolding installer tailored for Laravel apps with p
 ## Installation
 
 ```
-composer require --dev your-vendor/laravel-dockerize
+composer require --dev rfpdl/laravel-dockerize
 ```
 
 Install as a dev dependency so it isn't shipped to production images by default. After scaffolding, you can keep the package for future updates or remove it—the generated Docker files stay in your repo.
