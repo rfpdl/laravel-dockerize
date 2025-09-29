@@ -1,6 +1,8 @@
 # Stage 1: Build environment and Composer dependencies
 FROM php:8.3-fpm-alpine AS builder
 
+ARG SKIP_COMPOSER=false
+
 RUN apk add --no-cache --virtual .build-deps \
         $PHPIZE_DEPS \
         curl-dev \
@@ -36,7 +38,11 @@ WORKDIR /var/www
 COPY . /var/www
 
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
-    && composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist
+    && if [ "$SKIP_COMPOSER" = "true" ]; then \
+         echo "Skipping composer install in builder stage"; \
+       else \
+         composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist; \
+       fi
 
 # Stage 2: Production environment
 FROM php:8.3-fpm-alpine AS production
@@ -57,7 +63,8 @@ RUN curl -o /usr/local/bin/php-fpm-healthcheck \
 COPY ./docker/production/php-fpm/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod 755 /usr/local/bin/entrypoint.sh && chown www-data:www-data /usr/local/bin/entrypoint.sh
 
-COPY ./storage /var/www/storage-init
+# Create an empty storage-init directory (storage may be excluded from build context)
+RUN mkdir -p /var/www/storage-init
 COPY --from=builder /usr/local/lib/php/extensions/ /usr/local/lib/php/extensions/
 COPY --from=builder /usr/local/etc/php/conf.d/ /usr/local/etc/php/conf.d/
 COPY --from=builder /usr/local/bin/docker-php-ext-* /usr/local/bin/

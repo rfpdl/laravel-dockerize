@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -7,14 +5,14 @@ services:
       dockerfile: ./docker/common/php-fpm/Dockerfile
       target: development
       args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
-        - XDEBUG_ENABLED=${XDEBUG_ENABLED:-true}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        XDEBUG_ENABLED: ${XDEBUG_ENABLED:-true}
+        SKIP_COMPOSER: "true"
     restart: unless-stopped
     volumes:
       - .:/var/www
       - ./storage:/var/www/storage
-      - vendor:/var/www/vendor
       - node_modules:/var/www/node_modules
     env_file:
       - .env.local
@@ -22,6 +20,12 @@ services:
       - app-network
     ports:
       - "9000:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep php-fpm"]
+      interval: 5s
+      timeout: 10s
+      retries: 20
+      start_period: 30s
     depends_on:
       maindb:
         condition: service_healthy
@@ -41,7 +45,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - app
+      app:
+        condition: service_healthy
 
   vite:
     build:
@@ -111,12 +116,12 @@ services:
       dockerfile: ./docker/common/php-fpm/Dockerfile
       target: development
       args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        SKIP_COMPOSER: "true"
     restart: unless-stopped
     volumes:
       - .:/var/www
-      - vendor:/var/www/vendor
     env_file:
       - .env.local
     command: ["watch-horizon.sh"]
@@ -138,5 +143,4 @@ volumes:
   maindb-local-data:
   logdb-local-data:
   redis-local-data:
-  vendor:
   node_modules:

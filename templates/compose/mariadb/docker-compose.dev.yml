@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -7,9 +5,10 @@ services:
       dockerfile: ./docker/common/php-fpm/Dockerfile
       target: development
       args:
-        - UID=${UID:-1000}
-        - GID=${GID:-1000}
-        - XDEBUG_ENABLED=${XDEBUG_ENABLED:-false}
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        XDEBUG_ENABLED: ${XDEBUG_ENABLED:-false}
+        SKIP_COMPOSER: "true"
     restart: unless-stopped
     volumes:
       - .:/var/www
@@ -110,6 +109,9 @@ services:
     build:
       context: .
       dockerfile: ./docker/common/php-fpm/Dockerfile
+      target: development
+      args:
+        SKIP_COMPOSER: "true"
     restart: unless-stopped
     volumes:
       - .:/var/www

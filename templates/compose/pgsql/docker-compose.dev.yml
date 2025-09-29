@@ -10,6 +10,7 @@ services:
         - UID=${UID:-1000}
         - GID=${GID:-1000}
         - XDEBUG_ENABLED=${XDEBUG_ENABLED:-false}
+        - SKIP_COMPOSER=true
     restart: unless-stopped
     volumes:
       - .:/var/www
@@ -100,6 +101,12 @@ services:
     build:
       context: .
       dockerfile: ./docker/common/php-fpm/Dockerfile
+      target: development
+      args:
+        - UID=${UID:-1000}
+        - GID=${GID:-1000}
+        - XDEBUG_ENABLED=${XDEBUG_ENABLED:-false}
+        - SKIP_COMPOSER=true
     restart: unless-stopped
     volumes:
       - .:/var/www
