@@ -1,9 +1,5 @@
 # Laravel Dockerize
 
-<p align="center">
-  <img src="./assets/banner.svg" alt="Laravel Dockerize" width="100%" />
-</p>
-
 A Laravel-specific Docker scaffolding installer tailored for Laravel apps with production/dev/local presets.
 
 ## Requirements
